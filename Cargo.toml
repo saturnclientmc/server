@@ -1,0 +1,8 @@
+[package]
+name = "auraclient-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mongodb = { version = "3.2.1", features = ["sync"] }
+serde = "1.0.218"
