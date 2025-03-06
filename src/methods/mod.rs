@@ -1,14 +1,38 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    io::{self, BufRead, BufReader},
+    net::TcpStream,
+    sync::Arc,
+};
 
-use crate::io::{Database, Response};
+pub struct Session {
+    pub session_id: String,
+    pub database: Arc<crate::database::Database>,
+}
 
-pub fn handle_request(
-    database: Arc<Database>,
-    method: String,
-    params: HashMap<String, String>,
-) -> Result<Response, String> {
-    match method.as_str() {
-        "ping" => Ok(Response::Pong),
-        _ => Err("Invalid request: ".to_string()),
+impl Session {
+    pub fn new(
+        reader: &mut BufReader<TcpStream>,
+        database: Arc<crate::database::Database>,
+    ) -> io::Result<Self> {
+        let mut session_id = String::new();
+        reader.read_line(&mut session_id)?;
+
+        Ok(Self {
+            session_id,
+            database,
+        })
+    }
+
+    pub fn handle_request(
+        &self,
+        method: &str,
+        params: &HashMap<String, String>,
+    ) -> crate::response::Response {
+        match method {
+            "ping" => crate::response::Response::Pong,
+
+            _ => crate::response::Response::Error(crate::response::Error::InvalidRequest),
+        }
     }
 }

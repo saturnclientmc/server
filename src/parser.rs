@@ -13,7 +13,7 @@ impl ParamMap for HashMap<String, String> {
     }
 }
 
-pub fn parse(s: &str) -> Result<(String, HashMap<String, String>), String> {
+pub fn parse(s: &str) -> std::io::Result<(String, HashMap<String, String>)> {
     let mut parts = s.split("@");
 
     let method = parts.next().unwrap().trim().to_lowercase();
