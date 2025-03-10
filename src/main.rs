@@ -23,18 +23,33 @@ fn main() -> std::io::Result<()> {
             move || {
                 let mut stream = stream.unwrap();
                 let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let session = methods::Session::new(&mut reader, database).unwrap();
 
-                loop {
-                    let mut request_string = String::new();
-                    match reader.read_line(&mut request_string).unwrap() {
-                        0 => break,
-                        _ => {
-                            let (method, params) = parser::parse(&request_string).unwrap();
-                            let response = session.handle_request(&method, &params);
-                            stream.write_all(response.to_string().as_bytes()).unwrap();
-                        }
-                    };
+                match methods::Session::new(&mut reader, database) {
+                    Ok(session) => loop {
+                        let mut request_string = String::new();
+                        match reader.read_line(&mut request_string).unwrap() {
+                            0 => break,
+                            _ => {
+                                let (method, params) = parser::parse(&request_string).unwrap();
+                                let response = session.handle_request(&method, &params);
+                                stream
+                                    .write_all(
+                                        match response {
+                                            Ok(response) => response.to_string(),
+                                            Err(e) => format!("!{e}"),
+                                        }
+                                        .as_bytes(),
+                                    )
+                                    .unwrap();
+                            }
+                        };
+                    },
+                    Err(e) => {
+                        stream.write_all(format!("!{e}").as_bytes()).unwrap();
+                        stream
+                            .shutdown(std::net::Shutdown::Both)
+                            .expect("shutdown call failed");
+                    }
                 }
             }
         });

@@ -1,38 +1,72 @@
+mod set_cloak;
+
 use std::{
     collections::HashMap,
-    io::{self, BufRead, BufReader},
+    io::{BufRead, BufReader},
     net::TcpStream,
     sync::Arc,
 };
 
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    parser::ParamMap,
+    response::{Response, Result},
+};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LocalPlayer {
+    pub id: String,
+    pub name: String,
+}
+
 pub struct Session {
-    pub session_id: String,
+    pub session_token: String,
     pub database: Arc<crate::database::Database>,
+    pub player: LocalPlayer,
 }
 
 impl Session {
     pub fn new(
         reader: &mut BufReader<TcpStream>,
         database: Arc<crate::database::Database>,
-    ) -> io::Result<Self> {
-        let mut session_id = String::new();
-        reader.read_line(&mut session_id)?;
+    ) -> Result<Self> {
+        // Read the session token
+        let mut session_token = String::new();
+        reader
+            .read_line(&mut session_token)
+            .map_err(|_| crate::response::Error::InvalidHandshake)?;
+
+        // Validate session id
+        let response = minreq::get("https://api.minecraftservices.com/minecraft/profile")
+            .with_header("Authorization", &format!("Bearer {session_token}"))
+            .send()
+            .map_err(|_| crate::response::Error::InvalidSession)?;
+
+        // If the session is invalid, return an error
+        if response.status_code != 200 {
+            return Err(crate::response::Error::InvalidSession);
+        }
+
+        // Parse the player data
+        let player: LocalPlayer = response
+            .json()
+            .map_err(|_| crate::response::Error::InvalidSession)?;
 
         Ok(Self {
-            session_id,
+            session_token,
             database,
+            player,
         })
     }
 
-    pub fn handle_request(
-        &self,
-        method: &str,
-        params: &HashMap<String, String>,
-    ) -> crate::response::Response {
+    pub fn handle_request(&self, method: &str, params: &HashMap<String, String>) -> Result {
         match method {
-            "ping" => crate::response::Response::Pong,
+            "ping" => Ok(Response::Pong),
 
-            _ => crate::response::Response::Error(crate::response::Error::InvalidRequest),
+            "set_cloak" => set_cloak::set_cloak(self, params.parse_param("cloak")?),
+
+            _ => Err(crate::response::Error::InvalidRequest),
         }
     }
 }

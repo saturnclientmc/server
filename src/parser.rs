@@ -1,14 +1,14 @@
 use std::{collections::HashMap, str::FromStr};
 
 pub trait ParamMap {
-    fn parse_param<T: FromStr>(&self, param: &str) -> Result<T, String>;
+    fn parse_param<T: FromStr>(&self, param: &str) -> Result<T, crate::response::Error>;
 }
 
 impl ParamMap for HashMap<String, String> {
-    fn parse_param<T: FromStr>(&self, param: &str) -> Result<T, String> {
+    fn parse_param<T: FromStr>(&self, param: &str) -> Result<T, crate::response::Error> {
         match self.get(param) {
-            Some(value) => T::from_str(value).map_err(|_| format!("Invalid parameter: {}", param)),
-            None => Err(format!("Parameter not found: {}", param)),
+            Some(value) => T::from_str(value).map_err(|_| crate::response::Error::InvalidParameter),
+            None => Err(crate::response::Error::InvalidParameter),
         }
     }
 }
