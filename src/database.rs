@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Player {
     pub uuid: String,
     pub cloaks: Vec<String>,
@@ -10,7 +13,7 @@ pub struct Database {
 
 impl Database {
     pub fn new(client: &mongodb::sync::Client) -> Self {
-        let db = client.database("saturn");
+        let db = client.database("saturnclient");
         Self {
             players: db.collection("players"),
         }

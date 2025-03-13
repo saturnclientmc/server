@@ -1,3 +1,4 @@
+mod player;
 mod set_cloak;
 
 use std::{
@@ -65,6 +66,8 @@ impl Session {
             "ping" => Ok(Response::Pong),
 
             "set_cloak" => set_cloak::set_cloak(self, params.parse_param("cloak")?),
+
+            "player" => player::player(self, params.parse_param("uuid")?),
 
             _ => Err(crate::response::Error::InvalidRequest),
         }
