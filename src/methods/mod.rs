@@ -24,14 +24,14 @@ pub struct LocalPlayer {
 pub struct Session {
     pub session_token: String,
     pub database: Arc<crate::database::Database>,
-    pub player: LocalPlayer,
+    pub local_player: LocalPlayer,
 }
 
 impl Session {
     pub fn new(
         reader: &mut BufReader<TcpStream>,
         database: Arc<crate::database::Database>,
-    ) -> Result<Self> {
+    ) -> Result<(Self, Response)> {
         // Read the session token
         let mut session_token = String::new();
         reader
@@ -50,15 +50,21 @@ impl Session {
         }
 
         // Parse the player data
-        let player: LocalPlayer = response
+        let local_player: LocalPlayer = response
             .json()
             .map_err(|_| crate::response::Error::InvalidSession)?;
 
-        Ok(Self {
+        let uuid = local_player.id.clone();
+
+        let session = Self {
             session_token,
             database,
-            player,
-        })
+            local_player,
+        };
+
+        let player = player::player(&session, uuid)?;
+
+        Ok((session, player))
     }
 
     pub fn handle_request(&self, method: &str, params: &HashMap<String, String>) -> Result {

@@ -17,5 +17,6 @@ pub fn player(session: &Session, uuid: String) -> Result {
 
     Ok(Response::Player {
         cloak: player.cloak,
+        uuid,
     })
 }

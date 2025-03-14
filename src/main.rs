@@ -25,25 +25,30 @@ fn main() -> std::io::Result<()> {
                 let mut reader = BufReader::new(stream.try_clone().unwrap());
 
                 match methods::Session::new(&mut reader, database) {
-                    Ok(session) => loop {
-                        let mut request_string = String::new();
-                        match reader.read_line(&mut request_string).unwrap() {
-                            0 => break,
-                            _ => {
-                                let (method, params) = parser::parse(&request_string).unwrap();
-                                let response = session.handle_request(&method, &params);
-                                stream
-                                    .write_all(
+                    Ok((session, res)) => {
+                        writeln!(stream, "{res}").unwrap();
+                        stream.flush().unwrap();
+
+                        loop {
+                            let mut request_string = String::new();
+                            match reader.read_line(&mut request_string).unwrap() {
+                                0 => break,
+                                _ => {
+                                    let (method, params) = parser::parse(&request_string).unwrap();
+                                    let response = session.handle_request(&method, &params);
+                                    writeln!(
+                                        stream,
+                                        "{}",
                                         match response {
                                             Ok(response) => response.to_string(),
                                             Err(e) => format!("!{e}"),
                                         }
-                                        .as_bytes(),
                                     )
                                     .unwrap();
-                            }
-                        };
-                    },
+                                }
+                            };
+                        }
+                    }
                     Err(e) => {
                         stream.write_all(format!("!{e}").as_bytes()).unwrap();
                         stream
