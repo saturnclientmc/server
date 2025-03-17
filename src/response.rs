@@ -56,3 +56,5 @@ impl From<mongodb::error::Error> for Error {
         Error::DatabaseError
     }
 }
+
+impl std::error::Error for Error {}

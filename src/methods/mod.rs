@@ -63,6 +63,8 @@ impl Session {
             local_player,
         };
 
+
+        // Capture the player
         match player::player(&session, uuid) {
             Ok(player) => Ok((session, player)),
             Err(crate::response::Error::DatabaseError) => {
