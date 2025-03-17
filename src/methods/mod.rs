@@ -8,6 +8,7 @@ use std::{
     sync::Arc,
 };
 
+use player::create;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -62,9 +63,14 @@ impl Session {
             local_player,
         };
 
-        let player = player::player(&session, uuid)?;
-
-        Ok((session, player))
+        match player::player(&session, uuid) {
+            Ok(player) => Ok((session, player)),
+            Err(crate::response::Error::DatabaseError) => {
+                let player = create(&session)?;
+                Ok((session, player))
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub fn handle_request(&self, method: &str, params: &HashMap<String, String>) -> Result {

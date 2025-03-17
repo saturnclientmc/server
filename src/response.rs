@@ -4,7 +4,11 @@ pub type Result<T = Response> = std::result::Result<T, Error>;
 pub enum Response {
     Pong,
     Success,
-    Player { cloak: String, uuid: String },
+    Player {
+        cloak: String,
+        uuid: String,
+        cloaks: Vec<String>,
+    },
 }
 
 impl std::fmt::Display for Response {
@@ -12,7 +16,11 @@ impl std::fmt::Display for Response {
         match self {
             Response::Pong => write!(f, "Pong"),
             Response::Success => write!(f, "Success"),
-            Response::Player { cloak, uuid } => write!(f, "@cloak={cloak}@uuid={uuid}"),
+            Response::Player {
+                cloak,
+                uuid,
+                cloaks,
+            } => write!(f, "@cloak={cloak}@uuid={uuid}@cloaks={}", cloaks.join("$")),
         }
     }
 }
