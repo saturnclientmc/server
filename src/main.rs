@@ -13,7 +13,7 @@ fn main() -> std::io::Result<()> {
     let client = mongodb::sync::Client::with_uri_str("mongodb://admin:admin@localhost/").unwrap();
     let database = Arc::new(database::Database::new(&client));
 
-    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 
     for stream in listener.incoming() {
         println!("New connection");
