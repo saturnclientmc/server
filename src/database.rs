@@ -5,6 +5,8 @@ pub struct Player {
     pub uuid: String,
     pub cloaks: Vec<String>,
     pub cloak: String,
+    pub hats: Vec<String>,
+    pub hat: String,
 }
 
 pub struct Database {

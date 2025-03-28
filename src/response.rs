@@ -5,9 +5,11 @@ pub enum Response {
     Pong,
     Success,
     Player {
-        cloak: String,
         uuid: String,
         cloaks: Vec<String>,
+        cloak: String,
+        hats: Vec<String>,
+        hat: String,
     },
 }
 
@@ -17,10 +19,17 @@ impl std::fmt::Display for Response {
             Response::Pong => write!(f, "Pong"),
             Response::Success => write!(f, "Success"),
             Response::Player {
-                cloak,
                 uuid,
                 cloaks,
-            } => write!(f, "@cloak={cloak}@uuid={uuid}@cloaks={}", cloaks.join("$")),
+                cloak,
+                hats,
+                hat,
+            } => write!(
+                f,
+                "@cloak={cloak}@uuid={uuid}@cloaks={}@hats={}@hat={hat}",
+                cloaks.join("$"),
+                hats.join("$"),
+            ),
         }
     }
 }

@@ -21,6 +21,8 @@ pub fn player(session: &Session, uuid: String) -> Result {
         cloak: player.cloak,
         uuid,
         cloaks: player.cloaks,
+        hats: player.hats,
+        hat: player.hat,
     })
 }
 
@@ -28,9 +30,11 @@ pub fn create(session: &Session) -> Result {
     let uuid = session.local_player.id.clone();
 
     let player = Player {
-        cloak: "".to_string(),
-        cloaks: Vec::new(),
         uuid: uuid.clone(),
+        cloaks: Vec::new(),
+        cloak: "".to_string(),
+        hats: Vec::new(),
+        hat: String::new(),
     };
 
     session.database.players.insert_one(player.clone()).run()?;
@@ -39,5 +43,7 @@ pub fn create(session: &Session) -> Result {
         cloak: player.cloak,
         uuid,
         cloaks: player.cloaks,
+        hats: player.hats,
+        hat: player.hat,
     })
 }
