@@ -8,25 +8,28 @@ use crate::{
 use super::Session;
 
 pub fn player(session: &Session, uuid: String) -> Result {
-    // First, try to find the existing player
-    match session
+    // Try to find the player with the given UUID
+    let mut cursor = session
         .database
         .players
         .find(doc! { "uuid": uuid.clone() })
-        .run()?
-        .deserialize_current()
-    {
-        // Player exists, return their data
-        Ok(player) => Ok(Response::Player {
-            cloak: player.cloak,
-            uuid,
-            cloaks: player.cloaks,
-            hats: player.hats,
-            hat: player.hat,
-        }),
+        .run()?;
 
-        // Player doesn't exist, create a new player
-        Err(_) => {
+    // Check if there's a document in the cursor
+    match cursor.next() {
+        Some(Ok(player)) => {
+            // Player exists, deserialize and return their data
+            Ok(Response::Player {
+                cloak: player.cloak,
+                uuid,
+                cloaks: player.cloaks,
+                hats: player.hats,
+                hat: player.hat,
+            })
+        }
+
+        // No document found or deserialization error
+        _ => {
             let player = Player {
                 uuid: uuid.clone(),
                 cloaks: Vec::new(),
