@@ -1,5 +1,6 @@
 mod player;
 mod set_cloak;
+mod set_hat;
 
 use std::{
     collections::HashMap,
@@ -13,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     parser::ParamMap,
-    response::{Response, Result},
+    response::{PlayerResponse, Response, Result},
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -55,17 +56,14 @@ impl Session {
             .json()
             .map_err(|_| crate::response::Error::InvalidSession)?;
 
-        let uuid = local_player.id.clone();
-
         let session = Self {
             session_token,
             database,
             local_player,
         };
 
-
         // Capture the player
-        match player::player(&session, uuid) {
+        match player::login(&session) {
             Ok(player) => Ok((session, player)),
             Err(crate::response::Error::DatabaseError) => {
                 let player = create(&session)?;
@@ -81,7 +79,22 @@ impl Session {
 
             "set_cloak" => set_cloak::set_cloak(self, params.parse_param("cloak")?),
 
+            "set_hat" => set_hat::set_hat(self, params.parse_param("hat")?),
+
             "player" => player::player(self, params.parse_param("uuid")?),
+
+            "players" => {
+                let mut players: Vec<PlayerResponse> = Vec::new();
+                for uuid in params.parse_param::<String>("uuids")?.split("$") {
+                    match player::player(self, uuid.to_string())? {
+                        Response::Player(p) => {
+                            players.push(p);
+                        }
+                        _ => {}
+                    }
+                }
+                Ok(Response::Players(players))
+            }
 
             _ => Err(crate::response::Error::InvalidRequest),
         }

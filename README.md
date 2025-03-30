@@ -26,3 +26,7 @@ response
 !Invalid method
 ```
 On a response `!` means it's an error.
+
+# Methods
+### `set_cloak`
+- `cloak` -> `string`
