@@ -9,7 +9,7 @@ pub enum PlayerResponse {
         hats: Vec<String>,
         hat: String,
     },
-    NonSaturnPlayer,
+    NonSaturnPlayer(String),
 }
 impl std::fmt::Display for PlayerResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -26,7 +26,7 @@ impl std::fmt::Display for PlayerResponse {
                 cloaks.join("$"),
                 hats.join("$"),
             ),
-            PlayerResponse::NonSaturnPlayer => write!(f, "@saturn=false"),
+            PlayerResponse::NonSaturnPlayer(uuid) => write!(f, "@saturn=false@uuid={uuid}"),
         }
     }
 }

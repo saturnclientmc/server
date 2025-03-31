@@ -29,7 +29,7 @@ pub fn player(session: &Session, uuid: String) -> Result {
         }
 
         _ => Ok(crate::response::Response::Player(
-            crate::response::PlayerResponse::NonSaturnPlayer,
+            crate::response::PlayerResponse::NonSaturnPlayer(uuid),
         )),
     }
 }
