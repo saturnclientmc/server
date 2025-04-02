@@ -7,6 +7,7 @@ pub struct Player {
     pub cloak: String,
     pub hats: Vec<String>,
     pub hat: String,
+    pub online: bool,
 }
 
 pub struct Database {

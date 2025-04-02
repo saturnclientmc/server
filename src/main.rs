@@ -32,7 +32,10 @@ fn main() -> std::io::Result<()> {
                         loop {
                             let mut request_string = String::new();
                             match reader.read_line(&mut request_string).unwrap() {
-                                0 => break,
+                                0 => {
+                                    methods::player::logout(&session).unwrap();
+                                    println!("[MOJANG] {} went offline", session.local_player.name);
+                                }
                                 _ => {
                                     let (method, params) = parser::parse(&request_string).unwrap();
                                     let response = session.handle_request(&method, &params);

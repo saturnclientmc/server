@@ -16,22 +16,27 @@ pub fn player(session: &Session, uuid: String) -> Result {
         .run()?;
 
     // Check if there's a document in the cursor
-    match cursor.next() {
+    Ok(match cursor.next() {
         Some(Ok(player)) => {
-            // Player exists, deserialize and return their data
-            Ok(Response::Player(crate::response::PlayerResponse::Player {
-                cloak: player.cloak,
-                uuid,
-                cloaks: player.cloaks,
-                hats: player.hats,
-                hat: player.hat,
-            }))
+            if player.online {
+                Response::Player(crate::response::PlayerResponse::Player {
+                    cloak: player.cloak,
+                    uuid,
+                    cloaks: player.cloaks,
+                    hats: player.hats,
+                    hat: player.hat,
+                })
+            } else {
+                crate::response::Response::Player(crate::response::PlayerResponse::NonSaturnPlayer(
+                    uuid,
+                ))
+            }
         }
 
-        _ => Ok(crate::response::Response::Player(
-            crate::response::PlayerResponse::NonSaturnPlayer(uuid),
+        _ => crate::response::Response::Player(crate::response::PlayerResponse::NonSaturnPlayer(
+            uuid,
         )),
-    }
+    })
 }
 
 pub fn create(session: &Session) -> Result {
@@ -43,6 +48,7 @@ pub fn create(session: &Session) -> Result {
         cloak: "".to_string(),
         hats: Vec::new(),
         hat: String::new(),
+        online: true,
     };
 
     session.database.players.insert_one(player.clone()).run()?;
@@ -68,7 +74,18 @@ pub fn login(session: &Session) -> Result {
 
     // Check if there's a document in the cursor
     match cursor.next() {
-        Some(Ok(player)) => {
+        Some(Ok(mut player)) => {
+            // Update player's online status
+            player.online = true;
+            session
+                .database
+                .players
+                .update_one(
+                    doc! { "uuid": uuid.clone() },
+                    doc! { "$set": { "online": true } },
+                )
+                .run()?;
+
             // Player exists, deserialize and return their data
             Ok(Response::Player(crate::response::PlayerResponse::Player {
                 cloak: player.cloak,
@@ -80,26 +97,24 @@ pub fn login(session: &Session) -> Result {
         }
 
         // No document found or deserialization error
-        _ => {
-            let player = Player {
-                uuid: uuid.clone(),
-                cloaks: Vec::new(),
-                cloak: "".to_string(),
-                hats: Vec::new(),
-                hat: String::new(),
-            };
-
-            // Insert the new player
-            session.database.players.insert_one(player.clone()).run()?;
-
-            // Return the newly created player's data
-            Ok(Response::Player(crate::response::PlayerResponse::Player {
-                cloak: player.cloak,
-                uuid,
-                cloaks: player.cloaks,
-                hats: player.hats,
-                hat: player.hat,
-            }))
-        }
+        _ => create(session),
     }
+}
+
+pub fn logout(session: &Session) -> Result {
+    let uuid = session.local_player.id.clone();
+
+    // Update player's online status to false
+    session
+        .database
+        .players
+        .update_one(
+            doc! { "uuid": uuid.clone() },
+            doc! { "$set": { "online": false } },
+        )
+        .run()?;
+
+    Ok(Response::Player(
+        crate::response::PlayerResponse::NonSaturnPlayer(uuid),
+    ))
 }

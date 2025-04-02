@@ -70,6 +70,7 @@ pub enum Error {
     InvalidHandshake,
     DatabaseError,
     SomethingWentWrong,
+    Timeout,
 }
 
 impl std::fmt::Display for Error {
@@ -83,6 +84,7 @@ impl std::fmt::Display for Error {
             Error::InvalidHandshake => write!(f, "Invalid handshake"),
             Error::DatabaseError => write!(f, "Database error"),
             Error::SomethingWentWrong => write!(f, "Something went wrong"),
+            Error::Timeout => write!(f, "Timeout"),
         }
     }
 }
