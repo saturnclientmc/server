@@ -2,6 +2,7 @@ use std::{
     io::{BufRead, BufReader, Write},
     net::TcpListener,
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 pub mod database;
@@ -23,6 +24,7 @@ fn main() -> std::io::Result<()> {
             move || {
                 let mut stream = stream.unwrap();
                 let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut last_activity = Instant::now();
 
                 match methods::Session::new(&mut reader, database) {
                     Ok((session, res)) => {
@@ -31,12 +33,16 @@ fn main() -> std::io::Result<()> {
 
                         loop {
                             let mut request_string = String::new();
-                            match reader.read_line(&mut request_string).unwrap() {
-                                0 => {
+                            match reader.read_line(&mut request_string) {
+                                Ok(0) => {
+                                    // Client disconnected
+                                    println!("[MOJANG] {} disconnected", session.local_player.name);
                                     methods::player::logout(&session).unwrap();
                                     println!("[MOJANG] {} went offline", session.local_player.name);
+                                    break;
                                 }
-                                _ => {
+                                Ok(_) => {
+                                    last_activity = Instant::now();
                                     let (method, params) = parser::parse(&request_string).unwrap();
                                     let response = session.handle_request(&method, &params);
                                     writeln!(
@@ -49,7 +55,25 @@ fn main() -> std::io::Result<()> {
                                     )
                                     .unwrap();
                                 }
+                                Err(e) => {
+                                    println!(
+                                        "[ERROR] Read error for {}: {}",
+                                        session.local_player.name, e
+                                    );
+                                    break;
+                                }
                             };
+
+                            // Check for inactivity
+                            if last_activity.elapsed() > Duration::from_secs(60) {
+                                println!(
+                                    "[MOJANG] {} inactive for too long",
+                                    session.local_player.name
+                                );
+                                methods::player::logout(&session).unwrap();
+                                println!("[MOJANG] {} went offline", session.local_player.name);
+                                break;
+                            }
                         }
                     }
                     Err(e) => {
