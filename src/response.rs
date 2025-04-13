@@ -73,6 +73,7 @@ pub enum Error {
     Timeout(String),
     AuthenticationError(String),
     ValidationError(String),
+    EncryptionError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -89,6 +90,7 @@ impl std::fmt::Display for Error {
             Error::Timeout(operation) => write!(f, "Operation timed out: {}", operation),
             Error::AuthenticationError(details) => write!(f, "Authentication failed: {}", details),
             Error::ValidationError(details) => write!(f, "Validation failed: {}", details),
+            Error::EncryptionError(details) => write!(f, "Encryption error: {}", details),
         }
     }
 }

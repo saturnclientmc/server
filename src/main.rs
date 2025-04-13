@@ -1,10 +1,10 @@
 use std::{
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use openssl::rsa::Rsa;
+use openssl::{rsa::Rsa, pkey::Private};
 
 pub mod database;
 pub mod encryption;
@@ -12,69 +12,88 @@ pub mod methods;
 pub mod parser;
 pub mod response;
 
-fn main() -> std::io::Result<()> {
-    let rsa = Rsa::generate(2048).expect("Failed to generate RSA keys");
+fn main() -> Result<(), response::Error> {
+    let rsa = Rsa::generate(2048)
+        .map_err(|e| response::Error::EncryptionError(format!("Failed to generate RSA keys: {}", e)))?;
 
-    let client = mongodb::sync::Client::with_uri_str("mongodb://admin:admin@localhost/").unwrap();
+    let client = mongodb::sync::Client::with_uri_str("mongodb://admin:admin@localhost/")
+        .map_err(|e| response::Error::DatabaseError(format!("Failed to connect to MongoDB: {}", e)))?;
     let database = Arc::new(database::Database::new(&client));
 
-    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8080")
+        .map_err(|e| response::Error::NetworkError(format!("Failed to bind to port 8080: {}", e)))?;
 
-    for stream in listener.incoming() {
+    println!("Server listening on port 8080");
+
+    for stream_result in listener.incoming() {
+        let stream = match stream_result {
+            Ok(stream) => stream,
+            Err(e) => {
+                eprintln!("Failed to accept connection: {}", e);
+                continue;
+            }
+        };
+
         println!("New connection");
         let database = Arc::clone(&database);
         let rsa = rsa.clone();
 
-        std::thread::spawn({
-            move || {
-                let mut stream = encryption::handshake(stream.unwrap(), rsa);
-                let mut last_activity = Instant::now();
+        std::thread::spawn(move || {
+            if let Err(e) = handle_client(stream, rsa, database) {
+                eprintln!("Client error: {}", e);
+            }
+        });
+    }
 
-                match methods::Session::new(stream.clone(), database) {
-                    Ok((session, res)) => {
-                        stream.send(res);
+    Ok(())
+}
 
-                        loop {
-                            // Check for inactivity
-                            if last_activity.elapsed() > Duration::from_secs(60) {
-                                println!(
-                                    "[MOJANG] {} inactive for too long",
-                                    session.local_player.name
-                                );
-                                methods::player::logout(&session).unwrap();
-                                println!("[MOJANG] {} went offline", session.local_player.name);
-                                break;
-                            }
+fn handle_client(stream: TcpStream, rsa: Rsa<Private>, database: Arc<database::Database>) -> Result<(), response::Error> {
+    let mut stream = encryption::handshake(stream, rsa)?;
+    let mut last_activity = Instant::now();
 
-                            match stream.read() {
-                                None => {
-                                    // Client disconnected
-                                    println!("[MOJANG] {} disconnected", session.local_player.name);
-                                    methods::player::logout(&session).unwrap();
-                                    println!("[MOJANG] {} went offline", session.local_player.name);
-                                    break;
-                                }
-                                Some(request_string) => {
-                                    last_activity = Instant::now();
-                                    let (method, params) = parser::parse(&request_string).unwrap();
-                                    let response = session.handle_request(&method, &params);
+    match methods::Session::new(stream.clone()?, database) {
+        Ok((session, res)) => {
+            stream.send(res)?;
 
-                                    stream.send(match response {
-                                        Ok(response) => response.to_string(),
-                                        Err(e) => format!("!{e}"),
-                                    });
-                                }
-                            };
-                        }
+            loop {
+                // Check for inactivity
+                if last_activity.elapsed() > Duration::from_secs(60) {
+                    println!(
+                        "[MOJANG] {} inactive for too long",
+                        session.local_player.name
+                    );
+                    methods::player::logout(&session)?;
+                    println!("[MOJANG] {} went offline", session.local_player.name);
+                    break;
+                }
+
+                match stream.read()? {
+                    None => {
+                        // Client disconnected
+                        println!("[MOJANG] {} disconnected", session.local_player.name);
+                        methods::player::logout(&session)?;
+                        println!("[MOJANG] {} went offline", session.local_player.name);
+                        break;
                     }
-                    Err(e) => {
-                        stream.send(format!("!{e}"));
-                        println!("Disconnected");
-                        stream.close();
+                    Some(request_string) => {
+                        last_activity = Instant::now();
+                        let (method, params) = parser::parse(&request_string)?;
+                        let response = session.handle_request(&method, &params);
+
+                        stream.send(match response {
+                            Ok(response) => response.to_string(),
+                            Err(e) => format!("!{e}"),
+                        })?;
                     }
                 }
             }
-        });
+        }
+        Err(e) => {
+            stream.send(format!("!{e}"))?;
+            println!("Disconnected");
+            stream.close()?;
+        }
     }
 
     Ok(())

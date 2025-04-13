@@ -36,8 +36,10 @@ impl Session {
             mpsc::channel::<std::result::Result<String, crate::response::Error>>();
 
         std::thread::spawn(move || match stream.read() {
-            Some(session_token) => token_send.send(Ok(session_token)),
-            _ => token_send.send(Err(crate::response::Error::InvalidHandshake("Failed to read session token".to_string()))),
+            Ok(Some(session_token)) => token_send.send(Ok(session_token)),
+            _ => token_send.send(Err(crate::response::Error::InvalidHandshake(
+                "Failed to read session token".to_string(),
+            ))),
         });
 
         match token_recv.recv_timeout(std::time::Duration::from_secs(20)) {
@@ -46,17 +48,26 @@ impl Session {
                 let response = minreq::get("https://api.minecraftservices.com/minecraft/profile")
                     .with_header("Authorization", &format!("Bearer {session_token}"))
                     .send()
-                    .map_err(|_| crate::response::Error::InvalidSession("Failed to validate session".to_string()))?;
+                    .map_err(|_| {
+                        crate::response::Error::InvalidSession(
+                            "Failed to validate session".to_string(),
+                        )
+                    })?;
 
                 // If the session is invalid, return an error
                 if response.status_code != 200 {
-                    return Err(crate::response::Error::InvalidSession(format!("Invalid session status code: {}", response.status_code)));
+                    return Err(crate::response::Error::InvalidSession(format!(
+                        "Invalid session status code: {}",
+                        response.status_code
+                    )));
                 }
 
                 // Parse the player data
-                let local_player: LocalPlayer = response
-                    .json()
-                    .map_err(|_| crate::response::Error::InvalidSession("Failed to parse player data".to_string()))?;
+                let local_player: LocalPlayer = response.json().map_err(|_| {
+                    crate::response::Error::InvalidSession(
+                        "Failed to parse player data".to_string(),
+                    )
+                })?;
 
                 println!("[MOJANG] {} successfully logged on", &local_player.name);
 
@@ -72,8 +83,12 @@ impl Session {
                     Err(e) => Err(e),
                 }
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => Err(crate::response::Error::Timeout("Session handshake timed out".to_string())),
-            _ => Err(crate::response::Error::InvalidHandshake("Failed to receive handshake response".to_string())),
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(crate::response::Error::Timeout(
+                "Session handshake timed out".to_string(),
+            )),
+            _ => Err(crate::response::Error::InvalidHandshake(
+                "Failed to receive handshake response".to_string(),
+            )),
         }
     }
 
