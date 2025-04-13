@@ -1,5 +1,4 @@
 use std::{
-    io::{BufRead, BufReader, Write},
     net::TcpListener,
     sync::Arc,
     time::{Duration, Instant},
@@ -36,6 +35,17 @@ fn main() -> std::io::Result<()> {
                         stream.send(res);
 
                         loop {
+                            // Check for inactivity
+                            if last_activity.elapsed() > Duration::from_secs(60) {
+                                println!(
+                                    "[MOJANG] {} inactive for too long",
+                                    session.local_player.name
+                                );
+                                methods::player::logout(&session).unwrap();
+                                println!("[MOJANG] {} went offline", session.local_player.name);
+                                break;
+                            }
+
                             match stream.read() {
                                 None => {
                                     // Client disconnected
@@ -54,29 +64,12 @@ fn main() -> std::io::Result<()> {
                                         Err(e) => format!("!{e}"),
                                     });
                                 }
-                                // Err(e) => {
-                                //     println!(
-                                //         "[ERROR] Read error for {}: {}",
-                                //         session.local_player.name, e
-                                //     );
-                                //     break;
-                                // }
                             };
-
-                            // Check for inactivity
-                            if last_activity.elapsed() > Duration::from_secs(60) {
-                                println!(
-                                    "[MOJANG] {} inactive for too long",
-                                    session.local_player.name
-                                );
-                                methods::player::logout(&session).unwrap();
-                                println!("[MOJANG] {} went offline", session.local_player.name);
-                                break;
-                            }
                         }
                     }
                     Err(e) => {
-                        // stream.write_all(format!("!{e}").as_bytes()).unwrap();
+                        stream.send(format!("!{e}"));
+                        println!("Disconnected");
                         stream.close();
                     }
                 }
