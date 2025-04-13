@@ -12,6 +12,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    encryption::ETcp,
     parser::ParamMap,
     response::{PlayerResponse, Response, Result},
 };
@@ -30,24 +31,15 @@ pub struct Session {
 
 impl Session {
     pub fn new(
-        reader: &mut BufReader<TcpStream>,
+        mut stream: ETcp,
         database: Arc<crate::database::Database>,
     ) -> Result<(Self, Response)> {
         let (token_send, token_recv) =
             mpsc::channel::<std::result::Result<String, crate::response::Error>>();
 
-        let reader_clone = reader
-            .get_ref()
-            .try_clone()
-            .map_err(|_| crate::response::Error::InvalidHandshake)?;
-        std::thread::spawn(move || {
-            let mut reader = BufReader::new(reader_clone);
-            let mut session_token = String::new();
-            if reader.read_line(&mut session_token).is_ok() {
-                token_send.send(Ok(session_token))
-            } else {
-                token_send.send(Err(crate::response::Error::InvalidHandshake))
-            }
+        std::thread::spawn(move || match stream.read() {
+            Some(session_token) => token_send.send(Ok(session_token)),
+            _ => token_send.send(Err(crate::response::Error::InvalidHandshake)),
         });
 
         match token_recv.recv_timeout(std::time::Duration::from_secs(20)) {

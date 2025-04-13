@@ -29,72 +29,57 @@ fn main() -> std::io::Result<()> {
         std::thread::spawn({
             move || {
                 let mut stream = encryption::handshake(stream.unwrap(), rsa);
+                let mut last_activity = Instant::now();
 
-                println!("{:?}", stream.read());
+                match methods::Session::new(stream.clone(), database) {
+                    Ok((session, res)) => {
+                        stream.send(res);
 
-                stream.send("Daddy OMG!!!");
+                        loop {
+                            match stream.read() {
+                                None => {
+                                    // Client disconnected
+                                    println!("[MOJANG] {} disconnected", session.local_player.name);
+                                    methods::player::logout(&session).unwrap();
+                                    println!("[MOJANG] {} went offline", session.local_player.name);
+                                    break;
+                                }
+                                Some(request_string) => {
+                                    last_activity = Instant::now();
+                                    let (method, params) = parser::parse(&request_string).unwrap();
+                                    let response = session.handle_request(&method, &params);
 
-                println!("OMG sent")
-                // let mut reader = BufReader::new(stream.try_clone().unwrap());
-                // let mut last_activity = Instant::now();
+                                    stream.send(match response {
+                                        Ok(response) => response.to_string(),
+                                        Err(e) => format!("!{e}"),
+                                    });
+                                }
+                                // Err(e) => {
+                                //     println!(
+                                //         "[ERROR] Read error for {}: {}",
+                                //         session.local_player.name, e
+                                //     );
+                                //     break;
+                                // }
+                            };
 
-                // match methods::Session::new(&mut reader, database) {
-                //     Ok((session, res)) => {
-                //         writeln!(stream, "{res}").unwrap();
-                //         stream.flush().unwrap();
-
-                //         loop {
-                //             let mut request_string = String::new();
-                //             match reader.read_line(&mut request_string) {
-                //                 Ok(0) => {
-                //                     // Client disconnected
-                //                     println!("[MOJANG] {} disconnected", session.local_player.name);
-                //                     methods::player::logout(&session).unwrap();
-                //                     println!("[MOJANG] {} went offline", session.local_player.name);
-                //                     break;
-                //                 }
-                //                 Ok(_) => {
-                //                     last_activity = Instant::now();
-                //                     let (method, params) = parser::parse(&request_string).unwrap();
-                //                     let response = session.handle_request(&method, &params);
-                //                     writeln!(
-                //                         stream,
-                //                         "{}",
-                //                         match response {
-                //                             Ok(response) => response.to_string(),
-                //                             Err(e) => format!("!{e}"),
-                //                         }
-                //                     )
-                //                     .unwrap();
-                //                 }
-                //                 Err(e) => {
-                //                     println!(
-                //                         "[ERROR] Read error for {}: {}",
-                //                         session.local_player.name, e
-                //                     );
-                //                     break;
-                //                 }
-                //             };
-
-                //             // Check for inactivity
-                //             if last_activity.elapsed() > Duration::from_secs(60) {
-                //                 println!(
-                //                     "[MOJANG] {} inactive for too long",
-                //                     session.local_player.name
-                //                 );
-                //                 methods::player::logout(&session).unwrap();
-                //                 println!("[MOJANG] {} went offline", session.local_player.name);
-                //                 break;
-                //             }
-                //         }
-                //     }
-                //     Err(e) => {
-                //         stream.write_all(format!("!{e}").as_bytes()).unwrap();
-                //         stream
-                //             .shutdown(std::net::Shutdown::Both)
-                //             .expect("shutdown call failed");
-                //     }
-                // }
+                            // Check for inactivity
+                            if last_activity.elapsed() > Duration::from_secs(60) {
+                                println!(
+                                    "[MOJANG] {} inactive for too long",
+                                    session.local_player.name
+                                );
+                                methods::player::logout(&session).unwrap();
+                                println!("[MOJANG] {} went offline", session.local_player.name);
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        // stream.write_all(format!("!{e}").as_bytes()).unwrap();
+                        stream.close();
+                    }
+                }
             }
         });
     }
