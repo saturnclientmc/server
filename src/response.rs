@@ -62,29 +62,33 @@ impl std::fmt::Display for Response {
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    InvalidRequest,
-    InvalidMethod,
-    InvalidParameter,
-    ParameterNotFound,
-    InvalidSession,
-    InvalidHandshake,
-    DatabaseError,
-    SomethingWentWrong,
-    Timeout,
+    InvalidRequest(String),
+    InvalidMethod(String),
+    InvalidParameter { param: String, reason: String },
+    ParameterNotFound(String),
+    InvalidSession(String),
+    InvalidHandshake(String),
+    DatabaseError(String),
+    NetworkError(String),
+    Timeout(String),
+    AuthenticationError(String),
+    ValidationError(String),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::InvalidRequest => write!(f, "Invalid request"),
-            Error::InvalidMethod => write!(f, "Invalid method"),
-            Error::InvalidParameter => write!(f, "Invalid parameter"),
-            Error::ParameterNotFound => write!(f, "Parameter not found"),
-            Error::InvalidSession => write!(f, "Invalid session"),
-            Error::InvalidHandshake => write!(f, "Invalid handshake"),
-            Error::DatabaseError => write!(f, "Database error"),
-            Error::SomethingWentWrong => write!(f, "Something went wrong"),
-            Error::Timeout => write!(f, "Timeout"),
+            Error::InvalidRequest(msg) => write!(f, "Invalid request: {}", msg),
+            Error::InvalidMethod(method) => write!(f, "Invalid method: {}", method),
+            Error::InvalidParameter { param, reason } => write!(f, "Invalid parameter '{}': {}", param, reason),
+            Error::ParameterNotFound(param) => write!(f, "Required parameter not found: {}", param),
+            Error::InvalidSession(details) => write!(f, "Invalid session: {}", details),
+            Error::InvalidHandshake(details) => write!(f, "Handshake failed: {}", details),
+            Error::DatabaseError(details) => write!(f, "Database error: {}", details),
+            Error::NetworkError(details) => write!(f, "Network error: {}", details),
+            Error::Timeout(operation) => write!(f, "Operation timed out: {}", operation),
+            Error::AuthenticationError(details) => write!(f, "Authentication failed: {}", details),
+            Error::ValidationError(details) => write!(f, "Validation failed: {}", details),
         }
     }
 }
@@ -92,7 +96,7 @@ impl std::fmt::Display for Error {
 impl From<mongodb::error::Error> for Error {
     fn from(e: mongodb::error::Error) -> Self {
         println!("{e}");
-        Error::DatabaseError
+        Error::DatabaseError(e.to_string())
     }
 }
 

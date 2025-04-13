@@ -4,8 +4,6 @@ mod set_hat;
 
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader},
-    net::TcpStream,
     sync::{mpsc, Arc},
 };
 
@@ -39,7 +37,7 @@ impl Session {
 
         std::thread::spawn(move || match stream.read() {
             Some(session_token) => token_send.send(Ok(session_token)),
-            _ => token_send.send(Err(crate::response::Error::InvalidHandshake)),
+            _ => token_send.send(Err(crate::response::Error::InvalidHandshake("Failed to read session token".to_string()))),
         });
 
         match token_recv.recv_timeout(std::time::Duration::from_secs(20)) {
@@ -48,17 +46,17 @@ impl Session {
                 let response = minreq::get("https://api.minecraftservices.com/minecraft/profile")
                     .with_header("Authorization", &format!("Bearer {session_token}"))
                     .send()
-                    .map_err(|_| crate::response::Error::InvalidSession)?;
+                    .map_err(|_| crate::response::Error::InvalidSession("Failed to validate session".to_string()))?;
 
                 // If the session is invalid, return an error
                 if response.status_code != 200 {
-                    return Err(crate::response::Error::InvalidSession);
+                    return Err(crate::response::Error::InvalidSession(format!("Invalid session status code: {}", response.status_code)));
                 }
 
                 // Parse the player data
                 let local_player: LocalPlayer = response
                     .json()
-                    .map_err(|_| crate::response::Error::InvalidSession)?;
+                    .map_err(|_| crate::response::Error::InvalidSession("Failed to parse player data".to_string()))?;
 
                 println!("[MOJANG] {} successfully logged on", &local_player.name);
 
@@ -74,8 +72,8 @@ impl Session {
                     Err(e) => Err(e),
                 }
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => Err(crate::response::Error::Timeout),
-            _ => Err(crate::response::Error::InvalidHandshake),
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(crate::response::Error::Timeout("Session handshake timed out".to_string())),
+            _ => Err(crate::response::Error::InvalidHandshake("Failed to receive handshake response".to_string())),
         }
     }
 
@@ -91,18 +89,29 @@ impl Session {
 
             "players" => {
                 let mut players: Vec<PlayerResponse> = Vec::new();
-                for uuid in params.parse_param::<String>("uuids")?.split("$") {
+                let uuids = params.parse_param::<String>("uuids")?;
+                if uuids.is_empty() {
+                    return Err(crate::response::Error::InvalidParameter {
+                        param: "uuids".to_string(),
+                        reason: "UUIDs list cannot be empty".to_string(),
+                    });
+                }
+                for uuid in uuids.split("$") {
+                    if uuid.is_empty() {
+                        return Err(crate::response::Error::InvalidParameter {
+                            param: "uuids".to_string(),
+                            reason: "UUID cannot be empty".to_string(),
+                        });
+                    }
                     match player::player(self, uuid.to_string())? {
-                        Response::Player(p) => {
-                            players.push(p);
-                        }
+                        Response::Player(p) => players.push(p),
                         _ => {}
                     }
                 }
                 Ok(Response::Players(players))
             }
 
-            _ => Err(crate::response::Error::InvalidRequest),
+            _ => Err(crate::response::Error::InvalidMethod(method.to_string())),
         }
     }
 }
