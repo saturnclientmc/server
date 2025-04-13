@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+base64 = "0.22.1"
 minreq = { version = "2.13.2", features = ["https", "urlencoding", "json-using-serde"] }
 mongodb = { version = "3.2.1", features = ["sync"] }
+openssl = "0.10.72"
 serde = { version ="1.0.218", features = ["derive"] }
