@@ -48,6 +48,7 @@ pub fn create(session: &Session) -> Result {
         cloak: "".to_string(),
         hats: Vec::new(),
         hat: String::new(),
+        coins: 0,
         online: true,
     };
 
