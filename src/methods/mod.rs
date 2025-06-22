@@ -1,3 +1,4 @@
+mod buy;
 pub mod player;
 mod set_cloak;
 mod set_hat;
@@ -125,6 +126,8 @@ impl Session {
                 }
                 Ok(Response::Players(players))
             }
+
+            "buy_cloak" => buy::buy_cloak(self, params.parse_param("cloak")?),
 
             _ => Err(crate::response::Error::InvalidMethod(method.to_string())),
         }

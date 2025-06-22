@@ -74,6 +74,7 @@ pub enum Error {
     AuthenticationError(String),
     ValidationError(String),
     EncryptionError(String),
+    TransactionError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -81,7 +82,9 @@ impl std::fmt::Display for Error {
         match self {
             Error::InvalidRequest(msg) => write!(f, "Invalid request: {}", msg),
             Error::InvalidMethod(method) => write!(f, "Invalid method: {}", method),
-            Error::InvalidParameter { param, reason } => write!(f, "Invalid parameter '{}': {}", param, reason),
+            Error::InvalidParameter { param, reason } => {
+                write!(f, "Invalid parameter '{}': {}", param, reason)
+            }
             Error::ParameterNotFound(param) => write!(f, "Required parameter not found: {}", param),
             Error::InvalidSession(details) => write!(f, "Invalid session: {}", details),
             Error::InvalidHandshake(details) => write!(f, "Handshake failed: {}", details),

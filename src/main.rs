@@ -11,6 +11,7 @@ pub mod encryption;
 pub mod methods;
 pub mod parser;
 pub mod response;
+pub mod cosmetics;
 
 fn main() -> Result<(), response::Error> {
     let rsa = Rsa::generate(2048)
