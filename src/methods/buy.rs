@@ -14,10 +14,12 @@ pub fn buy_cloak(session: &Session, cloak: String) -> Result {
                 .players
                 .update_one(
                     filter,
-                    doc! { "$inc": { "points": -100 }, "$push": { "cloaks": cloak } },
+                    doc! { "$inc": { "coins": -100 }, "$push": { "cloaks": cloak.clone() } },
                 )
                 .run()?;
-            Ok(crate::response::Response::Success)
+            Ok(crate::response::Response::SuccessfulTransaction(format!(
+                "cloak={cloak}"
+            )))
         } else {
             Err(crate::response::Error::TransactionError(
                 "Not enough coins".to_string(),

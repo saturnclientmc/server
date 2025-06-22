@@ -35,6 +35,7 @@ impl std::fmt::Display for PlayerResponse {
 pub enum Response {
     Pong,
     Success,
+    SuccessfulTransaction(String),
     Player(PlayerResponse),
     Players(Vec<PlayerResponse>),
 }
@@ -56,6 +57,7 @@ impl std::fmt::Display for Response {
                         .join("\n")
                 )
             }
+            Response::SuccessfulTransaction(s) => write!(f, "successful_transaction@{s}"),
         }
     }
 }
