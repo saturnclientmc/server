@@ -94,6 +94,7 @@ impl std::fmt::Display for Error {
             Error::AuthenticationError(details) => write!(f, "Authentication failed: {}", details),
             Error::ValidationError(details) => write!(f, "Validation failed: {}", details),
             Error::EncryptionError(details) => write!(f, "Encryption error: {}", details),
+            Error::TransactionError(details) => write!(f, "Transaction error: {}", details),
         }
     }
 }
