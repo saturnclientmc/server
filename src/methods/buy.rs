@@ -31,3 +31,33 @@ pub fn buy_cloak(session: &Session, cloak: String) -> Result {
         ))
     }
 }
+
+pub fn buy_hat(session: &Session, hat: String) -> Result {
+    let filter = doc! {
+        "uuid": session.local_player.id.clone()
+    };
+
+    if let Some(doc) = session.database.players.find_one(filter.clone()).run()? {
+        if doc.coins >= 50 {
+            session
+                .database
+                .players
+                .update_one(
+                    filter,
+                    doc! { "$inc": { "coins": -50 }, "$push": { "hats": hat.clone() } },
+                )
+                .run()?;
+            Ok(crate::response::Response::SuccessfulTransaction(format!(
+                "hat={hat}"
+            )))
+        } else {
+            Err(crate::response::Error::TransactionError(
+                "Not enough coins".to_string(),
+            ))
+        }
+    } else {
+        Err(crate::response::Error::DatabaseError(
+            "Player not found".to_string(),
+        ))
+    }
+}

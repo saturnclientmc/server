@@ -128,6 +128,7 @@ impl Session {
             }
 
             "buy_cloak" => buy::buy_cloak(self, params.parse_param("cloak")?),
+            "buy_hat" => buy::buy_hat(self, params.parse_param("hat")?),
 
             _ => Err(crate::response::Error::InvalidMethod(method.to_string())),
         }
