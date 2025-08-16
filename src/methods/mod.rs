@@ -1,11 +1,12 @@
 mod buy;
+mod emote;
 pub mod player;
 mod set_cloak;
 mod set_hat;
 
 use std::{
     collections::HashMap,
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, Mutex},
 };
 
 use serde::{Deserialize, Serialize};
@@ -22,19 +23,25 @@ pub struct LocalPlayer {
     pub name: String,
 }
 
+pub type SocketMap = Arc<Mutex<HashMap<String, ETcp>>>;
+
 pub struct Session {
     pub session_token: String,
     pub database: Arc<crate::database::Database>,
     pub local_player: LocalPlayer,
+    sockets: SocketMap,
 }
 
 impl Session {
     pub fn new(
         mut stream: ETcp,
         database: Arc<crate::database::Database>,
+        sockets: SocketMap,
     ) -> Result<(Self, Response)> {
         let (token_send, token_recv) =
             mpsc::channel::<std::result::Result<String, crate::response::Error>>();
+
+        let stream_2 = stream.try_clone()?;
 
         std::thread::spawn(move || match stream.read() {
             Ok(Some(session_token)) => token_send.send(Ok(session_token)),
@@ -76,11 +83,15 @@ impl Session {
                     session_token,
                     database,
                     local_player,
+                    sockets,
                 };
 
                 // Capture the player
                 match player::login(&session) {
-                    Ok(player) => Ok((session, player)),
+                    Ok(player) => {
+                        session.add_socket(stream_2);
+                        Ok((session, player))
+                    }
                     Err(e) => Err(e),
                 }
             }
@@ -97,9 +108,35 @@ impl Session {
         match method {
             "ping" => Ok(Response::Pong),
 
-            "set_cloak" => set_cloak::set_cloak(self, params.parse_param("cloak")?),
+            "set_cloak" => set_cloak::set_cloak(
+                self,
+                params.parse_param("cloak")?,
+                params
+                    .parse_param::<String>("notify")
+                    .unwrap_or_default()
+                    .split("$")
+                    .collect(),
+            ),
 
-            "set_hat" => set_hat::set_hat(self, params.parse_param("hat")?),
+            "set_hat" => set_hat::set_hat(
+                self,
+                params.parse_param("hat")?,
+                params
+                    .parse_param::<String>("notify")
+                    .unwrap_or_default()
+                    .split("$")
+                    .collect(),
+            ),
+
+            "emote" => emote::emote(
+                self,
+                params.parse_param("name")?,
+                params
+                    .parse_param::<String>("notify")
+                    .unwrap_or_default()
+                    .split("$")
+                    .collect(),
+            ),
 
             "player" => player::player(self, params.parse_param("uuid")?),
 
@@ -132,5 +169,29 @@ impl Session {
 
             _ => Err(crate::response::Error::InvalidMethod(method.to_string())),
         }
+    }
+}
+
+impl Session {
+    pub fn add_socket(&self, sock: ETcp) {
+        self.sockets
+            .lock()
+            .unwrap()
+            .insert(self.local_player.id.clone(), sock);
+    }
+
+    pub fn remove_from_sockets(&self) {
+        self.sockets.lock().unwrap().remove(&self.local_player.id);
+    }
+
+    pub fn notify(&self, players: &[&str], message: &str) -> Result<()> {
+        let mut sockets = self.sockets.lock().unwrap();
+        for player in players {
+            if let Some(i) = sockets.get_mut(&player.to_string()) {
+                i.send(message)
+                    .map_err(|e| crate::response::Error::DatabaseError(format!("{e}")))?;
+            }
+        }
+        Ok(())
     }
 }
