@@ -103,6 +103,7 @@ pub fn login(session: &Session) -> Result {
 }
 
 pub fn logout(session: &Session) -> Result {
+    session.remove_from_sockets();
     let uuid = session.local_player.id.clone();
 
     // Update player's online status to false
