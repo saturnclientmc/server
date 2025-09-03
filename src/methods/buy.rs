@@ -8,7 +8,7 @@ pub fn buy_cloak(session: &Session, cloak: String) -> Result {
     };
 
     if let Some(doc) = session.database.players.find_one(filter.clone()).run()? {
-        if doc.coins >= 100 {
+        if doc.coins >= 100 && !doc.cloaks.contains(&cloak) {
             session
                 .database
                 .players
@@ -38,7 +38,7 @@ pub fn buy_hat(session: &Session, hat: String) -> Result {
     };
 
     if let Some(doc) = session.database.players.find_one(filter.clone()).run()? {
-        if doc.coins >= 50 {
+        if doc.coins >= 50 && !doc.hats.contains(&hat) {
             session
                 .database
                 .players
